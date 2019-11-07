@@ -12,10 +12,12 @@
 <body>
     <h1>pandas for everyone. 🐼</h1>
     <div id="app">
+        <md-progress-bar md-mode="determinate" :md-value="amount"></md-progress-bar>
+        <input type="range" v-model.number="amount"> {{ amount }}%
         <md-steppers>
             <md-step v-for="question in questions" :key=question.name>
                 <doctest-activity v-bind:layout-things=question.layoutItems
-                    v-bind:question-name=question.name @questionhandler="toggleQuestionStatus" />
+                    v-bind:question-name=question.name @questionhandler="toggleQuestionStatus" @updateprog="updateProgress" />
             </md-step>
         </md-steppers>
     </div>
@@ -34,13 +36,13 @@
         props: ['layoutThings', 'questionName'],
         data: function () {
             return {
-                amount:0,
+                progress : 0,
                 answer: "",
                 layoutItems: this.layoutThings,
                 title: this.questionName,
                 num_try: 0,
                 html_result:"",
-                json_result:"",
+                python_result:"",
                 text_result:"",
                 cmOptions: {
                     mode: 'python',
@@ -56,7 +58,6 @@
         methods: {
             postContents: function () {
                 // only when submit question successfully
-                this.amount = this.amount +10;
                 this.num_try = this.num_try + 1;
                 // comment: leaving the gatewayUrl empty - API will post back to itself
                 const gatewayUrl = '';
@@ -66,22 +67,30 @@
                         'Accept': 'application/json',
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ shown: { 0: this.layoutItems[0].vModel }, editable: { 0: this.layoutItems[1].vModel } })
+                    body: JSON.stringify({ shown: { 0: this.layoutItems[0].vModel }, editable: { 0: this.layoutItems[1].vModel }, qname:{0: this.questionName} })
                 }).then(response => {
                     return response.json()
                 }).then(data => {
-                    this.answer = JSON.parse(JSON.stringify(data))
-                    if (this.num_try < 3){
-                        this.html_result = this.answer.htmlFeedback
-                        this.json_result = this.answer.jsonFeedback
-                        this.text_result = this.answer.textFeedback
+                    this.answer = JSON.parse(JSON.stringify(data));
+                    if(this.answer.isComplete == 1) {
+                        this.num_try = 0;
+                        this.html_result = this.answer.htmlFeedback;
+                        this.python_result = this.answer.pythonFeedback;
+                        this.text_result = "Congratulations!";
+                    }
+                    else if (this.num_try < 3){
+                        this.html_result = this.answer.htmlFeedback;
+                        this.python_result = this.answer.pythonFeedback;
+                        this.text_result = "Sorry, try again";
                     }
                     else{
                         this.num_try = 0;
-                        this.html_result = "html_answer"
-                        this.json_result = "json asnwer"
-                        this.text_result = "text answer"
+                        this.html_result = "html_answer";
+                        this.python_result = "python answer";
+                        this.text_result = this.answer.textFeedback;
                     }
+                    this.progress = this.answer.progress * 10;
+                    this.$emit('updateprog', this.progress)
                     return this.$emit('questionhandler', { data, questionName: this.questionName })
                 })
             }
@@ -89,8 +98,8 @@
         template:
         `
         <div>
-        <md-progress-bar md-mode="determinate" :md-value="amount"></md-progress-bar>
-        <input type="range" v-model.number="amount"> {{ amount }}%
+        
+        
         <h2 class="title-name">{{title}}</h2> 
             <div class="md-layout  md-gutter">
                 <div id="cardGroupCreator" class="md-layout-item md-size-50">
@@ -175,13 +184,13 @@
                             <md-field>
                                 <md-tabs>
                                     <md-tab id="tab-htmlResults" md-label="HTML results">
-                                        <div v-html="answer.htmlFeedback" readonly></div>
+                                        <div v-html="html_result" readonly></div>
                                     </md-tab>
                                     <md-tab id="tab-pythonResults" md-label="Python results">
-                                        <md-textarea v-model="answer.pythonFeedback" readonly></md-textarea>
+                                        <md-textarea v-model="python_result" readonly></md-textarea>
                                     </md-tab>
                                     <md-tab id="tab-textResults" md-label="Solution">
-                                        <md-textarea v-model="answer.textFeedback" readonly></md-textarea>
+                                        <md-textarea v-model="text_result" readonly></md-textarea>
                                     </md-tab>
                                 </md-tabs>
                             </md-field>
@@ -197,7 +206,7 @@
         el: '#app',
         data: function () {
             return {
-                amount: 100,
+                amount:0,
                 questions: [
                     {
                         name: "Selecting Rows", layoutItems: [
@@ -343,13 +352,23 @@
                                                                     {id: "8",name: "Yuan Zai",gender: "F",age:"6",children: "No",residence:"Taiwan"},
                                                                     {id: "9",name: "Gu Gu",gender: "M",age:"20",children: "No",residence:"China"},
                                                                     {id: "10",name: "Lun Lun",gender: "F",age:"22",children: "Yes",residence:"USA"}]},
-                            { header: "Expected Dataframe", data:[]}
+                            { header: "Expected Dataframe", data:[{id: "1",name: "Mei Xiang",gender: "F",age:"20",children:"Yes",residence:"USA"},
+                                                                    {id: "2",name: "Bei Bei",gender: "M",age:"4",children: "No",residence:"USA"},
+                                                                    {id: "3",name: "Bai Yun",gender: "F",age:"28",children: "Yes",residence:"China"},
+                                                                    {id: "4",name: "Bao Bao",gender: "F",age:"6",children: "No",residence:"China"},
+                                                                    {id: "5",name: "Da Mao",gender: "M",age:"11",children: "No",residence:"Canada"},
+                                                                    {id: "6",name: "Lin Hui",gender: "F",age:"18",children: "Yes",residence:"Thailand"},
+                                                                    {id: "7",name: "Tian Tian",gender: "F",age:"16",children: "No",residence:"UK"},
+                                                                    {id: "8",name: "Yuan Zai",gender: "F",age:"6",children: "No",residence:"Taiwan"},
+                                                                    {id: "9",name: "Gu Gu",gender: "M",age:"20",children: "No",residence:"China"},
+                                                                    {id: "10",name: "Lun Lun",gender: "F",age:"22",children: "Yes",residence:"USA"},
+                                                                    {id: "11",name: "Tao Tao",gender: "M",age:"20",children: "No",residence:"China"}]}
                         ], status: " 🔴"
                     },
                     {
-                        name: "Adding New Columns", layoutItems: [
-                            { header: "Examples", subHeader: 'Objective: Learn how to add new data columns into dataframe', vModel: "## Creating a list that is converted into a column and added to the dataframe \n>>> weight = [115, 101, 112, 95, 98, 105, 120, 143, 110, 155]\n\n## Using 'weight' as the column name and equating it to the list\n>>> original_df['weight'] = weight\n "},
-                            { header: "Exercise", subHeader: 'Write your code below to modify the Original Dataframe to look like the Expected Output Dataframe.', vModel: "## Add a new column to the dataframe with your own values \n\n "},
+                        name: "Deleting rows", layoutItems: [
+                            { header: "Examples", subHeader: 'Objective: Learn how to delete rows from dataframe', vModel: "## Deleting second row from the dataframe \n>>> original_df.drop(original_df.index[1])\n "},
+                            { header: "Exercise", subHeader: 'Write your code below to modify the Original Dataframe to look like the Expected Output Dataframe.', vModel: "## Delete fifth row from the dataframe\n\n "},
                             { header: "Original Dataframe", data: [{id: "1",name: "Mei Xiang",gender: "F",age:"20",children:"Yes",residence:"USA"},
                                                                     {id: "2",name: "Bei Bei",gender: "M",age:"4",children: "No",residence:"USA"},
                                                                     {id: "3",name: "Bai Yun",gender: "F",age:"28",children: "Yes",residence:"China"},
@@ -359,14 +378,22 @@
                                                                     {id: "7",name: "Tian Tian",gender: "F",age:"16",children: "No",residence:"UK"},
                                                                     {id: "8",name: "Yuan Zai",gender: "F",age:"6",children: "No",residence:"Taiwan"},
                                                                     {id: "9",name: "Gu Gu",gender: "M",age:"20",children: "No",residence:"China"},
-                                                                    {id: "10",name: "Lun Lun",gender: "F",age:"22",children: "Yes",residence:"USA"}]},
-                            { header: "Expected Dataframe", data:[]}
+                                                                    {id: "10",name: "Lun Lun",gender: "F",age:"22",children: "Yes",residence:"USA",}]},
+                            { header: "Expected Dataframe", data:[{id: "1",name: "Mei Xiang",gender: "F",age:"20",children:"Yes",residence:"USA"},
+                                                                    {id: "2",name: "Bei Bei",gender: "M",age:"4",children: "No",residence:"USA"},
+                                                                    {id: "3",name: "Bai Yun",gender: "F",age:"28",children: "Yes",residence:"China"},
+                                                                    {id: "4",name: "Bao Bao",gender: "F",age:"6",children: "No",residence:"China"},
+                                                                    {id: "6",name: "Lin Hui",gender: "F",age:"18",children: "Yes",residence:"Thailand"},
+                                                                    {id: "7",name: "Tian Tian",gender: "F",age:"16",children: "No",residence:"UK"},
+                                                                    {id: "8",name: "Yuan Zai",gender: "F",age:"6",children: "No",residence:"Taiwan"},
+                                                                    {id: "9",name: "Gu Gu",gender: "M",age:"20",children: "No",residence:"China"},
+                                                                    {id: "10",name: "Lun Lun",gender: "F",age:"22",children: "Yes",residence:"USA"}]}
                         ], status: " 🔴"
                     },
                     {
                         name: "Using Min and Max", layoutItems: [
                             { header: "Examples", subHeader: 'Objective: Learn how to use Min and Max', vModel: "## Find the minimum value of each column \n>>> original_df.min(axis = 0)\n\n## Find the maximum value of each row \n>>> original_df.max(axis = 1) \n" },
-                            { header: "Exercise", subHeader: 'Write your code below to modify the Original Dataframe to look like the Expected Output Dataframe.', vModel: "## Find the minimum value for each row \n\n\n## Find the maximum value for each column \n\n"},
+                            { header: "Exercise", subHeader: 'Write your code below to modify the Original Dataframe to look like the Expected Output Dataframe.', vModel: "## Find the minimum value of each row \n\n\n## Find the maximum value of each column \n\n"},
                             { header: "Original Dataframe", data: [{id: "1",name: "Mei Xiang",gender: "F",age:"20",children:"Yes",residence:"USA"},
                                                                     {id: "2",name: "Bei Bei",gender: "M",age:"4",children: "No",residence:"USA"},
                                                                     {id: "3",name: "Bai Yun",gender: "F",age:"28",children: "Yes",residence:"China"},
@@ -377,7 +404,18 @@
                                                                     {id: "8",name: "Yuan Zai",gender: "F",age:"6",children: "No",residence:"Taiwan"},
                                                                     {id: "9",name: "Gu Gu",gender: "M",age:"20",children: "No",residence:"China"},
                                                                     {id: "10",name: "Lun Lun",gender: "F",age:"22",children: "Yes",residence:"USA"}]},
-                            { header: "Expected Dataframe", data:[]}
+                            { header: "Expected Dataframe", data:[{id: "1"},
+                                                                    {id: "2"},
+                                                                    {id: "3"},
+                                                                    {id: "4"},
+                                                                    {id: "5"},
+                                                                    {id: "6"},
+                                                                    {id: "7"},
+                                                                    {age:"6"},
+                                                                    {id: "9"},
+                                                                    {id: "10"},
+                                                                    {id: "10"},
+                                                                    {age: "28"}]}
                         ], status: " 🔴"
                     },
                     {
@@ -422,6 +460,9 @@
                         :
                         this.questions.find(item => item.name === questionName).status = " 🔴"
                 }
+            },
+            updateProgress(progress){
+                this.amount = progress;
             }
         }
     })
@@ -431,8 +472,8 @@
 <style lang="scss" scoped>
     .title-name{
         text-align: center;
-        font-size: 30px;
-        height: 30px;
+        font-size: 40px;
+        height: 40px;
         margin: 15px;
     }
     .md-stepper-header{
